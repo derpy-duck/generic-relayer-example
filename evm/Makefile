@@ -26,7 +26,15 @@ unit-test: forge-test
 
 .PHONY: forge-test
 forge-test: dependencies
-	forge test --fork-url ${TESTING_AVAX_FORK_RPC} -vv
+	forge test --fork-url ${TESTING_FUJI_FORK_RPC} 
+
+.PHONY: forge-test
+forge-test-logs: dependencies
+	FOUNDRY_FUZZ_RUNS=1 forge test --fork-url ${TESTING_FUJI_FORK_RPC} -vvvvv --match-test testFullFlow1Msg
+
+.PHONY: forge-test-verbose
+forge-test-verbose: dependencies
+	FOUNDRY_FUZZ_RUNS=1 forge test --fork-url ${TESTING_FUJI_FORK_RPC} -vvv --match-test testFullFlow1Msg
 
 .PHONY: integration-test
 integration-test: dependencies build
