@@ -6,22 +6,26 @@ import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
 import {IWormhole} from "../src/interfaces/IWormhole.sol";
-import {HelloWorld} from "../src/01_hello_world/HelloWorld.sol";
+import {ICoreRelayer} from "../src/interfaces/ICoreRelayer.sol";
+import {Spoke} from "../src/spoke/Spoke.sol";
 
 contract ContractScript is Script {
     IWormhole wormhole;
-    HelloWorld helloWorld;
+    ICoreRelayer coreRelayer;
+    Spoke spoke;
 
     function setUp() public {
         wormhole = IWormhole(vm.envAddress("TESTING_WORMHOLE_ADDRESS"));
+        coreRelayer = ICoreRelayer(vm.envAddress("TESTING_CORERELAYER_ADDRESS"));
     }
 
-    function deployHelloWorld() public {
+    function deploySpoke() public {
         // deploy the HelloWorld contract
-        helloWorld = new HelloWorld(
+        spoke = new Spoke(
             address(wormhole),
-            wormhole.chainId(),
-            1 // wormholeFinality
+            address(coreRelayer),
+            vm.envBytes32("TESTING_HUB_ADDRESS"),
+            uint16(vm.envUint("TESTING_HUB_CHAINID"))
         );
     }
 
@@ -29,8 +33,8 @@ contract ContractScript is Script {
         // begin sending transactions
         vm.startBroadcast();
 
-        // HelloWorld.sol
-        deployHelloWorld();
+        // Spoke.sol
+        deploySpoke();
 
         // finished
         vm.stopBroadcast();
