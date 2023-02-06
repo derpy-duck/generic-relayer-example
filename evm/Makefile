@@ -26,7 +26,7 @@ unit-test: forge-test
 
 .PHONY: forge-test
 forge-test: dependencies
-	forge test --fork-url ${TESTING_FUJI_FORK_RPC} 
+	FOUNDRY_FUZZ_RUNS=10 forge test --fork-url ${TESTING_FUJI_FORK_RPC} --match-test testFullFlow1Msg
 
 .PHONY: forge-test
 forge-test-logs: dependencies
@@ -35,6 +35,10 @@ forge-test-logs: dependencies
 .PHONY: forge-test-verbose
 forge-test-verbose: dependencies
 	FOUNDRY_FUZZ_RUNS=1 forge test --fork-url ${TESTING_FUJI_FORK_RPC} -vvv --match-test testFullFlow1Msg
+
+.PHONY: forge-test-verbose
+forge-test-long: dependencies
+	forge test --fork-url ${TESTING_FUJI_FORK_RPC} 
 
 .PHONY: integration-test
 integration-test: dependencies build
