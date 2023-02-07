@@ -9,7 +9,7 @@ clean:
 	rm -rf anvil.log node_modules lib out
 
 .PHONY: dependencies
-dependencies: node_modules lib/forge-std
+dependencies: node_modules lib/forge-std update-submodules
 
 node_modules:
 	yarn
@@ -20,6 +20,12 @@ lib/forge-std:
 build: dependencies
 	forge build
 	yarn build-types
+
+ts-relayer-sdk:
+	git clone --depth 1 --branch ts-additions --single-branch https://github.com/wormhole-foundation/trustless-generic-relayer.git ../submodules/trustless-generic-relayer
+
+update-submodules:
+	git submodule update --init --recursive
 
 .PHONY: unit-test
 unit-test: forge-test
