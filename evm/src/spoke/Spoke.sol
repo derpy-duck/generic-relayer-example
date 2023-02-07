@@ -28,6 +28,7 @@ contract Spoke is IWormholeReceiver {
     // Chat Messages List
     struct ChatMessage {
         address sender;
+        uint16 chainId;
         bytes message;
     }
     ChatMessage[32] chatMessages;
@@ -73,10 +74,10 @@ contract Spoke is IWormholeReceiver {
         return (chatMessages, length);
     }
 
-    function sendChatMessage(bytes memory message) public payable {
+    function sendChatMessage(bytes memory message) public payable returns (uint64 msgWhSequence, uint64 coreRelayerWhSequence) {
         require(message.length <= type(uint16).max, "Message too large");
-        wormhole.publishMessage(1, encodeChatMessage(ChatMessage({sender: msg.sender, message: message})), 200);
-        coreRelayer.requestDelivery{value: msg.value}(ICoreRelayer.DeliveryRequest({
+        msgWhSequence = wormhole.publishMessage(1, encodeChatMessage(ChatMessage({sender: msg.sender, chainId: wormhole.chainId(), message: message})), 200);
+        coreRelayerWhSequence = coreRelayer.requestDelivery{value: msg.value}(ICoreRelayer.DeliveryRequest({
             targetChain: hubChainId,
             targetAddress: hubContract,
             refundAddress: hubContract,
@@ -88,8 +89,9 @@ contract Spoke is IWormholeReceiver {
 
     function decodeChatMessage(bytes memory payload, uint256 payloadIndex, uint16 chatMessageIndex) public {
         chatMessages[chatMessageIndex].sender = payload.toAddress(payloadIndex);
-        uint16 length_ = payload.toUint16(payloadIndex+20);
-        chatMessages[chatMessageIndex].message = payload.slice(payloadIndex+22, length_);
+        chatMessages[chatMessageIndex].chainId = payload.toUint16(payloadIndex+20);
+        uint16 length_ = payload.toUint16(payloadIndex+22);
+        chatMessages[chatMessageIndex].message = payload.slice(payloadIndex+24, length_);
     }
 
     function decodeAndSetChatMessages(bytes memory payload) public {
@@ -98,11 +100,11 @@ contract Spoke is IWormholeReceiver {
         uint256 index = 2;
         for(uint16 i=0; i<length; i++) {
             decodeChatMessage(payload, index, i);
-            index += chatMessages[i].message.length + 22;
+            index += chatMessages[i].message.length + 24;
         }
     }
 
     function encodeChatMessage(ChatMessage memory _chatMessage) public pure returns (bytes memory encodedMsg) {
-        encodedMsg = abi.encodePacked(_chatMessage.sender, uint16(_chatMessage.message.length), _chatMessage.message);
+        encodedMsg = abi.encodePacked(_chatMessage.sender, _chatMessage.chainId, uint16(_chatMessage.message.length), _chatMessage.message);
     }
 }

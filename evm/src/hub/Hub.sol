@@ -30,6 +30,7 @@ contract Hub is IWormholeReceiver {
     // Chat Messages List
     struct ChatMessage {
         address sender;
+        uint16 chainId;
         bytes message;
     }
 
@@ -104,14 +105,15 @@ contract Hub is IWormholeReceiver {
 
     function decodeChatMessage(bytes memory payload) public view returns(ChatMessage memory decodedMsg) {
         decodedMsg.sender = payload.toAddress(0);
-        uint16 length = payload.toUint16(20);
-        decodedMsg.message = payload.slice(22, length);
+        decodedMsg.chainId = payload.toUint16(20);
+        uint16 length = payload.toUint16(22);
+        decodedMsg.message = payload.slice(24, length);
     }
 
     function encodeChatMessages(ChatMessage[] memory _chatMessages) public pure returns (bytes memory encodedMsg) {
         encodedMsg = abi.encodePacked(uint16(_chatMessages.length));
         for(uint16 i=0; i<_chatMessages.length; i++) {
-            encodedMsg = abi.encodePacked(encodedMsg, _chatMessages[i].sender, uint16(_chatMessages[i].message.length), _chatMessages[i].message);
+            encodedMsg = abi.encodePacked(encodedMsg, _chatMessages[i].sender, _chatMessages[i].chainId, uint16(_chatMessages[i].message.length), _chatMessages[i].message);
         }
     }
 
