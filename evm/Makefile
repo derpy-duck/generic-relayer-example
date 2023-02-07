@@ -30,11 +30,16 @@ update-submodules:
 .PHONY: unit-test
 unit-test: forge-test
 
-.PHONY: forge-test
-forge-test: dependencies
-	FOUNDRY_FUZZ_RUNS=10 forge test --fork-url ${TESTING_FUJI_FORK_RPC} --match-test testFullFlow1Msg
+.PHONY: forge-test-short
+forge-test-fast: dependencies
+	FOUNDRY_FUZZ_RUNS=1 forge test --fork-url ${TESTING_FUJI_FORK_RPC} --match-test testFullFlow1Msg
 
 .PHONY: forge-test
+forge-test: dependencies
+	FOUNDRY_FUZZ_RUNS=1 forge test --fork-url ${TESTING_FUJI_FORK_RPC} 
+
+
+.PHONY: forge-test-logs
 forge-test-logs: dependencies
 	FOUNDRY_FUZZ_RUNS=1 forge test --fork-url ${TESTING_FUJI_FORK_RPC} -vvvvv --match-test testFullFlow1Msg
 
@@ -42,14 +47,7 @@ forge-test-logs: dependencies
 forge-test-verbose: dependencies
 	FOUNDRY_FUZZ_RUNS=1 forge test --fork-url ${TESTING_FUJI_FORK_RPC} -vvv --match-test testFullFlow1Msg
 
-.PHONY: forge-test-verbose
+.PHONY: forge-test-long
 forge-test-long: dependencies
 	forge test --fork-url ${TESTING_FUJI_FORK_RPC} 
-
-.PHONY: integration-test
-integration-test: dependencies build
-	bash shell-scripts/run_integration_tests.sh
-
-.PHONY: test
-test: forge-test integration-test
 
