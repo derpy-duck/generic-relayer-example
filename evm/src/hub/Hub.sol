@@ -85,6 +85,9 @@ contract Hub is IWormholeReceiver {
                 counter += 1;
             }
             uint16 chainId = (i == 0 ? wormholeMessage.emitterChainId : registeredSpokeChainIds[counter]);
+            if(i!=0) {
+                counter += 1;
+            }
 
             // Construct a 'Send' request to go to the i-th registered chain (excluding the chain that the latest message came from, which is at index 0)
             requests[i] = IWormholeRelayer.Send({
