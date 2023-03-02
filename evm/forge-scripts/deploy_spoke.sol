@@ -6,17 +6,17 @@ import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
 import {IWormhole} from "../src/interfaces/IWormhole.sol";
-import {ICoreRelayer} from "../src/interfaces/ICoreRelayer.sol";
+import {IWormholeRelayer} from "../src/interfaces/IWormholeRelayer.sol";
 import {Spoke} from "../src/spoke/Spoke.sol";
 
 contract ContractScript is Script {
     IWormhole wormhole;
-    ICoreRelayer coreRelayer;
+    IWormholeRelayer coreRelayer;
     Spoke spoke;
 
     function setUp() public {
         wormhole = IWormhole(vm.envAddress("TESTING_WORMHOLE_ADDRESS"));
-        coreRelayer = ICoreRelayer(vm.envAddress("TESTING_CORERELAYER_ADDRESS"));
+        coreRelayer = IWormholeRelayer(vm.envAddress("TESTING_CORERELAYER_ADDRESS"));
     }
 
     function deploySpoke() public {
