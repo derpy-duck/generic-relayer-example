@@ -72,34 +72,26 @@ contract Hub is IWormholeReceiver {
             nextToDelete += 1;
         }
 
-        IWormholeRelayer.Send[] memory requests = new IWormholeRelayer.Send[](registeredSpokeChainIds.length);
-
         // Publish a wormhole message containing all of the chat messages on the Hub
         wormhole.publishMessage(1, encodeChatMessages(chatMessages), 200);
 
         // Construct an array of 'Send' requests, to forward this message to all of the registered spokes
-        uint256 counter = 0;
-        for (uint256 i = 0; i < registeredSpokeChainIds.length; i++) {
-            // Place the spoke that the latest message came from at the front, so that any leftover transaction fee is sent there
-            if (i > 0 && (registeredSpokeChainIds[counter] == wormholeMessage.emitterChainId)) {
-                counter += 1;
-            }
-            uint16 chainId = (i == 0 ? wormholeMessage.emitterChainId : registeredSpokeChainIds[counter]);
-            if(i!=0) {
-                counter += 1;
-            }
+        IWormholeRelayer.Send[] memory requests = new IWormholeRelayer.Send[](registeredSpokeChainIds.length);
 
-            // Construct a 'Send' request to go to the i-th registered chain (excluding the chain that the latest message came from, which is at index 0)
-            requests[i] = IWormholeRelayer.Send({
-                targetChain: chainId,
-                targetAddress: registeredSpokeAddresses[chainId],
-                refundAddress: chainId == wormholeMessage.emitterChainId
-                    ? wormholeRelayer.toWormholeFormat(parsedMessage.sender)
-                    : registeredSpokeAddresses[chainId],
-                maxTransactionFee: wormholeRelayer.quoteGas(chainId, 500000, wormholeRelayer.getDefaultRelayProvider()),
-                receiverValue: 0,
-                relayParameters: wormholeRelayer.getDefaultRelayParams()
-            });
+        // Place the spoke that the latest message came from at the front, so that any leftover transaction fee is sent there
+        requests[0] = getSendRequestToChain(
+            wormholeMessage.emitterChainId, wormholeRelayer.toWormholeFormat(parsedMessage.sender)
+        );
+
+        // Fill the array with all the other spokes
+        uint256 counter = 1;
+        for (uint256 i = 0; i < registeredSpokeChainIds.length; i++) {
+            if (registeredSpokeChainIds[i] == wormholeMessage.emitterChainId) {
+                continue;
+            }
+            requests[counter] =
+                getSendRequestToChain(registeredSpokeChainIds[i], registeredSpokeAddresses[registeredSpokeChainIds[i]]);
+            counter += 1;
         }
 
         IWormholeRelayer.MultichainSend memory sendToSpokes = IWormholeRelayer.MultichainSend({
@@ -108,6 +100,21 @@ contract Hub is IWormholeReceiver {
         });
 
         wormholeRelayer.multichainForward(sendToSpokes, 1);
+    }
+
+    function getSendRequestToChain(uint16 chainId, bytes32 refundAddress)
+        internal
+        view
+        returns (IWormholeRelayer.Send memory request)
+    {
+        request = IWormholeRelayer.Send({
+            targetChain: chainId,
+            targetAddress: registeredSpokeAddresses[chainId],
+            refundAddress: refundAddress,
+            maxTransactionFee: wormholeRelayer.quoteGas(chainId, 500000, wormholeRelayer.getDefaultRelayProvider()),
+            receiverValue: 0,
+            relayParameters: wormholeRelayer.getDefaultRelayParams()
+        });
     }
 
     function decodeChatMessage(bytes memory payload) public pure returns (ChatMessage memory decodedMsg) {
