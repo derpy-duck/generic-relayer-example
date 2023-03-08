@@ -56,6 +56,13 @@
       console.log(`Current Spokes: ${spokes.map((s)=>(s.chainId)).join(", ")}`);
     }
 
+    const run_hub = async (args: string[]) => {
+      const hub = getHub();
+      if(args[3] == "state") {
+        console.log("Registered spokes:");
+      }
+    }
+
     const run_spoke = async (args: string[]) => {
       const chainInfo = chains.find((chain)=>(chain.chainId == parseInt(process.argv[3])));
       if(!chainInfo) {
@@ -146,6 +153,7 @@
         console.log("spoke [x] sendMessage [msg]: Sends message consisting of the string 'msg', from spoke x")
         console.log("spoke [x] status [txHash]: Prints status of the sent message from spoke x correponding to the transaction hash 'txHash'")
         console.log("spoke [x] resend [txHash]: Redeliver the sent message from spoke x corresponding to the transaction hash 'txHash'")
+        console.log("hub state: Read hub state");
       }
       if (process.argv.length < 3) {
         run_help()
@@ -157,6 +165,8 @@
         run_spoke(process.argv)
       } else if(process.argv[2] == "help")  {
         run_help()
+      } else if(process.argv[2] == "hub") {
+        run_hub(process.argv)
       } else {
         console.log("Invalid command")
       }
