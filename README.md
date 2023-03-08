@@ -1,18 +1,60 @@
-# Wormhole Scaffolding
+# xChat: Example Wormhole Generic Relayer Integration in EVM
 
-This repository warehouses apps that integrate with Wormhole generic messaging and existing apps that use Wormhole message passing. These apps range in complexity and demonstrate how to organize your business logic in your smart contracts. These examples also show how you would write tests supporting your Wormhole integration.
+xChat uses a Hub and Spoke model to create a group chat between members on different chains. 
+
+Specifically, a Hub contract is deployed onto one chain, and Spoke contracts are deployed onto all desired chains. 
+
+Users can send messages through any spoke contract. The message is passed to the Hub chain using Wormhole, and relayed using Wormhole's default generic relayer. 
+
 
 ## Prerequisites
 
-### EVM
+Install [Foundry tools](https://book.getfoundry.sh/getting-started/installation), which include `forge`, `anvil` and `cast` CLI tools.
 
-If your xChain app will require EVM smart contracts, we recommend using [Foundry tools](https://book.getfoundry.sh/getting-started/installation), which include `forge`, `anvil` and `cast` CLI tools.
+Navigate to the 'evm' folder for all the below steps:
+```
+cd evm
+``` 
 
-### Solana
+## Build
 
-If your xChain app will require Solana programs, prepare your development environment by installing [Solana and Anchor dependencies](https://book.anchor-lang.com/getting_started/installation.html), which include `solana` and `anchor` CLI tools.
+Run the following commands to install necessary dependencies and to build the smart contracts:
 
-## Build and Test
+```
+make dependencies
+make build
+```
 
-Each directory represents Wormhole integrations for specific blockchain networks. Please navigate
-to a network subdirectory to see more details on building and testing.
+## Test Suite
+
+Run the Solidity based unit tests:
+
+```
+make forge-test
+```
+(takes around 2-3 minutes)
+
+For a quicker test, try
+```
+make forge-test-fast
+```
+
+## Interface with TestNet deployed contracts
+
+First set an environment variable WALLET_KEY to be your wallet's private key. Then,
+```
+cd ts-deploy-scripts
+ts-node testContracts.ts 
+```
+This should list all the valid methods you can use. For example, you can:
+```
+ts-node testContracts deploy hub 6
+ts-node testContracts deploy spoke 6
+ts-node testContracts deploy spoke 4
+ts-node testContracts deploy spoke 14
+ts-node testContracts spoke 6 register
+ts-node testContracts spoke 4 register
+ts-node testContracts spoke 14 register
+ts-node testContracts.ts spoke 4 sendMessage "This is a message from chain 4!"
+ts-node testContracts.ts spoke 6 getMessages 
+```
