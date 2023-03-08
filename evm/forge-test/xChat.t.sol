@@ -6,7 +6,8 @@ import "../src/spoke/Spoke.sol";
 import "../src/hub/Hub.sol";
 import {WormholeSimulator} from "wormhole-solidity/WormholeSimulator.sol";
 import {IWormhole} from "../src/interfaces/IWormhole.sol";
-import {ICoreRelayer} from "../src/interfaces/ICoreRelayer.sol";
+import {IWormholeRelayer} from "../src/interfaces/IWormholeRelayer.sol";
+import {IDelivery} from "../src/interfaces/IDelivery.sol";
 import {IRelayProvider} from "../src/interfaces/IRelayProvider.sol";
 
 import "forge-std/console.sol";
@@ -16,23 +17,22 @@ import "../src/libraries/BytesLib.sol";
  * @title A Test Suite for the EVM HelloWorld Contracts
  */
 contract xChatTest is Test {
-
     using BytesLib for bytes;
     // guardian private key for simulated signing of Wormhole messages
+
     uint256 guardianSigner;
 
     // contract instances
     IWormhole wormhole;
     WormholeSimulator wormholeSimulator;
-    ICoreRelayer coreRelayer; 
+    IWormholeRelayer coreRelayer;
+    IDelivery relayer;
     IRelayProvider relayProvider;
 
     Hub hub;
     Spoke spoke;
 
     uint16 hubChainId;
-
-
 
     /**
      * @notice Sets up the wormholeSimulator contracts and deploys HelloWorld
@@ -60,65 +60,64 @@ contract xChatTest is Test {
             wormhole.getCurrentGuardianSetIndex() == uint32(vm.envUint("TESTING_FUJI_WORMHOLE_GUARDIAN_SET_INDEX")),
             "wrong guardian set index"
         );
-        
-        coreRelayer = ICoreRelayer(vm.envAddress("TESTING_FUJI_CORERELAYER_ADDRESS"));
-        relayProvider = coreRelayer.getDefaultRelayProvider();
+
+        coreRelayer = IWormholeRelayer(vm.envAddress("TESTING_FUJI_CORERELAYER_ADDRESS"));
+        relayer = IDelivery(address(coreRelayer));
+        relayProvider = IRelayProvider(coreRelayer.getDefaultRelayProvider());
 
         hub = new Hub(address(wormhole), address(coreRelayer));
-        spoke = new Spoke(address(wormhole), address(coreRelayer), coreRelayer.toWormholeFormat(address(hub)), hubChainId);
+        spoke =
+            new Spoke(address(wormhole), address(coreRelayer), coreRelayer.toWormholeFormat(address(hub)), hubChainId);
         hub.registerEmitter(hubChainId, coreRelayer.toWormholeFormat(address(spoke)));
     }
 
     function testFullFlow1Msg(Spoke.ChatMessage[32] memory msgs) public {
         vm.deal(coreRelayer.fromWormholeFormat(relayProvider.getDeliveryAddress(hubChainId)), type(uint256).max);
         vm.recordLogs();
-        for(uint16 i=0; i<2; i++) {
+        for (uint16 i = 0; i < 2; i++) {
             vm.getRecordedLogs();
             vm.deal(msgs[i].sender, type(uint128).max);
 
-            uint256 quote = coreRelayer.quoteGasDeliveryFee(hubChainId, 12000000*2, relayProvider);
+            uint256 quote = coreRelayer.quoteGas(hubChainId, 12000000 * 2, address(relayProvider));
 
             vm.prank(msgs[i].sender);
             spoke.sendChatMessage{value: quote}(msgs[i].message);
             genericRelayer(hubChainId, 2);
             genericRelayer(hubChainId, 2);
             (Spoke.ChatMessage[32] memory msgsReturned, uint16 length) = spoke.getChatMessages();
-            require(length == i+1, "Wrong length");
-            for(uint16 j=0; j<length; j++) {
+            require(length == i + 1, "Wrong length");
+            for (uint16 j = 0; j < length; j++) {
                 require(msgsReturned[j].sender == msgs[j].sender, "Wrong sender of a message");
                 require(keccak256(msgsReturned[j].message) == keccak256(msgs[j].message), "Wrong message");
             }
             console.log("Balance Used: ");
             console.log((type(uint128).max - address(msgs[i].sender).balance));
         }
-
     }
 
     function testFullFlow32Msgs(Spoke.ChatMessage[32] memory msgs) public {
         vm.deal(coreRelayer.fromWormholeFormat(relayProvider.getDeliveryAddress(hubChainId)), type(uint256).max);
         vm.recordLogs();
-        for(uint16 i=0; i<32; i++) {
+        for (uint16 i = 0; i < 32; i++) {
             vm.getRecordedLogs();
             vm.deal(msgs[i].sender, type(uint128).max);
 
-            uint256 quote = coreRelayer.quoteGasDeliveryFee(hubChainId, 12000000*2, relayProvider);
+            uint256 quote = coreRelayer.quoteGas(hubChainId, 12000000 * 2, address(relayProvider));
 
             vm.prank(msgs[i].sender);
             spoke.sendChatMessage{value: quote}(msgs[i].message);
             genericRelayer(hubChainId, 2);
             genericRelayer(hubChainId, 2);
             (Spoke.ChatMessage[32] memory msgsReturned, uint16 length) = spoke.getChatMessages();
-            require(length == i+1, "Wrong length");
-            for(uint16 j=0; j<length; j++) {
+            require(length == i + 1, "Wrong length");
+            for (uint16 j = 0; j < length; j++) {
                 require(msgsReturned[j].sender == msgs[j].sender, "Wrong sender of a message");
                 require(keccak256(msgsReturned[j].message) == keccak256(msgs[j].message), "Wrong message");
             }
             console.log("Balance Used: ");
             console.log((type(uint128).max - address(uint160(uint256(i))).balance));
         }
-
     }
-
 
     /**
      *
@@ -130,7 +129,7 @@ contract xChatTest is Test {
 
     mapping(uint256 => bool) nonceCompleted;
 
-    mapping(bytes32 => ICoreRelayer.TargetDeliveryParametersSingle) pastDeliveries;
+    mapping(bytes32 => IDelivery.TargetDeliveryParametersSingle) pastDeliveries;
 
     function genericRelayer(uint16 chainId, uint8 num) internal {
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -190,40 +189,41 @@ contract xChatTest is Test {
     ) internal {
         uint8 payloadId = parsed.payload.toUint8(0);
         if (payloadId == 1) {
-            ICoreRelayer.DeliveryInstructionsContainer memory container =
-                coreRelayer.getDeliveryInstructionsContainer(parsed.payload);
+            IDelivery.DeliveryInstructionsContainer memory container =
+                relayer.decodeDeliveryInstructionsContainer(parsed.payload);
             for (uint8 k = 0; k < container.instructions.length; k++) {
                 uint256 budget =
-                    container.instructions[k].maximumRefundTarget + container.instructions[k].applicationBudgetTarget;
+                    container.instructions[k].maximumRefundTarget + container.instructions[k].receiverValueTarget;
                 uint16 targetChain = container.instructions[k].targetChain;
-                ICoreRelayer.TargetDeliveryParametersSingle memory package = ICoreRelayer.TargetDeliveryParametersSingle({
+                IDelivery.TargetDeliveryParametersSingle memory package = IDelivery.TargetDeliveryParametersSingle({
                     encodedVMs: deliveryInstructions,
                     deliveryIndex: counter,
                     multisendIndex: k,
-                    relayerRefundAddress: payable(coreRelayer.fromWormholeFormat(relayProvider.getDeliveryAddress(targetChain)))
+                    relayerRefundAddress: payable(
+                        coreRelayer.fromWormholeFormat(relayProvider.getDeliveryAddress(targetChain))
+                        )
                 });
                 uint256 wormholeFee = wormhole.messageFee();
                 vm.prank(coreRelayer.fromWormholeFormat(relayProvider.getDeliveryAddress(targetChain)));
-                coreRelayer.deliverSingle{value: (budget + wormholeFee)}(package);
+                relayer.deliverSingle{value: (budget + wormholeFee)}(package);
                 pastDeliveries[keccak256(abi.encodePacked(parsed.hash, k))] = package;
             }
         } else if (payloadId == 2) {
-            ICoreRelayer.RedeliveryByTxHashInstruction memory instruction =
-                coreRelayer.getRedeliveryByTxHashInstruction(parsed.payload);
-            ICoreRelayer.TargetDeliveryParametersSingle memory originalDelivery =
+            IDelivery.RedeliveryByTxHashInstruction memory instruction =
+                relayer.decodeRedeliveryInstruction(parsed.payload);
+            IDelivery.TargetDeliveryParametersSingle memory originalDelivery =
                 pastDeliveries[keccak256(abi.encodePacked(instruction.sourceTxHash, instruction.multisendIndex))];
             uint16 targetChain = instruction.targetChain;
-            uint256 budget = instruction.newMaximumRefundTarget + instruction.newApplicationBudgetTarget
-                + wormhole.messageFee();
-            ICoreRelayer.TargetRedeliveryByTxHashParamsSingle memory package = ICoreRelayer
+            uint256 budget =
+                instruction.newMaximumRefundTarget + instruction.newReceiverValueTarget + wormhole.messageFee();
+            IDelivery.TargetRedeliveryByTxHashParamsSingle memory package = IDelivery
                 .TargetRedeliveryByTxHashParamsSingle({
                 redeliveryVM: encodedVM,
                 sourceEncodedVMs: originalDelivery.encodedVMs,
                 relayerRefundAddress: payable(coreRelayer.fromWormholeFormat(relayProvider.getDeliveryAddress(targetChain)))
             });
             vm.prank(coreRelayer.fromWormholeFormat(relayProvider.getDeliveryAddress(targetChain)));
-            coreRelayer.redeliverSingle{value: budget}(package);
+            relayer.redeliverSingle{value: budget}(package);
         }
     }
-
 }

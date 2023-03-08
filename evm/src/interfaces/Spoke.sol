@@ -77,13 +77,13 @@ contract Spoke is IWormholeReceiver {
     function sendChatMessage(bytes memory message)
         public
         payable
-        returns (uint64 msgWhSequence, uint64 wormholeRelayerWhSequence)
+        returns (uint64 msgWhSequence, uint64 coreRelayerWhSequence)
     {
         require(message.length <= type(uint16).max, "Message too large");
         msgWhSequence = wormhole.publishMessage(
             1, encodeChatMessage(ChatMessage({sender: msg.sender, chainId: wormhole.chainId(), message: message})), 200
         );
-        wormholeRelayerWhSequence =
+        coreRelayerWhSequence =
             wormholeRelayer.send{value: msg.value}(hubChainId, hubContract, hubContract, msg.value, 0, 1);
     }
 
